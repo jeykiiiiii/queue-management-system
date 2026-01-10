@@ -4,42 +4,46 @@ import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
   try {
-    const { name, email, password, role } = await request.json();
-
-    if (!name || !email || !password) {
+    const body = await request.json();
+    const { name, email, password, role } = body;
+    
+    if (!name || !email || !password || !role) {
       return NextResponse.json(
-        { error: 'Name, email, and password are required' },
+        { success: false, error: 'All fields are required' },
         { status: 400 }
       );
     }
-
-    const [existingStaff]: any = await db.query(
+    
+    // Check if email already exists
+    const [existing]: any = await db.query(
       'SELECT * FROM staff WHERE email = ?',
       [email]
     );
-
-    if (existingStaff.length > 0) {
+    
+    if (existing && existing.length > 0) {
       return NextResponse.json(
-        { error: 'Staff with this email already exists' },
-        { status: 409 }
+        { success: false, error: 'Email already registered' },
+        { status: 400 }
       );
     }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Insert new staff
     await db.query(
       'INSERT INTO staff (name, email, password, role) VALUES (?, ?, ?, ?)',
-      [name, email, hashedPassword, role || 'staff']
+      [name, email, hashedPassword, role]
     );
-
-    return NextResponse.json({
-      message: 'Staff registered successfully'
-    });
-
-  } catch (error: any) {
-    console.error('Registration error:', error);
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { success: true, message: 'Staff registered successfully' },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error('Error registering staff:', error);
+    return NextResponse.json(
+      { success: false, error: error.message },
       { status: 500 }
     );
   }

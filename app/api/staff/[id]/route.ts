@@ -1,31 +1,78 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-export async function DELETE(
+export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const staffId = params.id;
-
-    // Check if staff exists
-    const [staff] = await db.execute('SELECT id FROM staff WHERE id = ?', [staffId]);
+    const { id } = await params;
     
-    if (!Array.isArray(staff) || staff.length === 0) {
+    const [rows]: any = await db.query('SELECT * FROM staff WHERE id = ?', [id]);
+    
+    if (!rows || rows.length === 0) {
       return NextResponse.json(
-        { error: 'Staff member not found' },
+        { success: false, error: 'Staff not found' },
         { status: 404 }
       );
     }
+    
+    return NextResponse.json({ success: true, data: rows[0] });
+  } catch (error: any) {
+    console.error('Error fetching staff:', error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
 
-    // Delete the staff member
-    await db.execute('DELETE FROM staff WHERE id = ?', [staffId]);
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    
+    const { name, email, role } = body;
+    
+    if (!name || !email || !role) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+    
+    await db.query(
+      'UPDATE staff SET name = ?, email = ?, role = ? WHERE id = ?',
+      [name, email, role, id]
+    );
+    
+    return NextResponse.json({ success: true, message: 'Staff updated successfully' });
+  } catch (error: any) {
+    console.error('Error updating staff:', error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
 
-    return NextResponse.json({ message: 'Staff member deleted successfully' });
-  } catch (error) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    
+    await db.query('DELETE FROM staff WHERE id = ?', [id]);
+    
+    return NextResponse.json({ success: true, message: 'Staff deleted successfully' });
+  } catch (error: any) {
     console.error('Error deleting staff:', error);
     return NextResponse.json(
-      { error: 'Failed to delete staff member' },
+      { success: false, error: error.message },
       { status: 500 }
     );
   }
